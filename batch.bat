@@ -1,0 +1,1 @@
+start /B conda run -n base main.py -v true
