@@ -83,3 +83,77 @@ def Gaussian2D(size, sigma):
     # normalize the matrix
     H = H / np.sum(np.concatenate(H))
     return H
+
+
+def neighbors(pixelpos, image, connectedness=8):
+    X,Y = image.shape
+    x = pixelpos[0]
+    y = pixelpos[1]
+    n = []
+    #print(X,Y,x,y)
+    if connectedness == 8:
+        for i in [-1, 0, 1]:
+            # check within x bounds
+            if x+i > -1 and x+i < X:
+                #print(x+i)
+                for j in [-1, 0, 1]:
+                    # check within y bounds
+                    if y+j > -1 and y+j < Y:
+                        #print(y+j)mi
+                        # p is not a neighbor of p
+                        if x+i != 0 and y+j != 0:
+                            n.append((x+i,y+j))
+    elif connectedness == 4:
+        if x > 0:
+            n.append((-1, 0))
+        if x < X:
+            n.append((1, 0))
+        if y > 0:
+            n.append((0, -1))
+        if y < Y:
+            n.append((0, 1))
+    return n
+    
+    
+def grow_regions(image, unlabeled=0):
+    X,Y = image.shape
+    next_label = unlabeled + 1
+    change_flag = True
+    while change_flag:
+        change_flag = False
+        for i in range(0,X):
+            for j in range(0,Y):
+                if image[i,j] == unlabeled:
+                    # start labeling a new region
+                    current_label = next_label
+                    #print(current_label)
+                    next_label = next_label + 1
+                    change_flag = True
+                    
+                    # grow that region
+                    stack = [(i,j)]
+                    while len(stack) > 0:
+                        p = stack.pop(-1)
+                        x = p[0]
+                        y = p[1]
+                        #print(x,y)
+                        for ii in [-1, 0, 1]:
+                            if ii+x > -1 and ii+x < X:
+                                for jj in [-1, 0, 1]:
+                                    if jj+y > -1 and jj+y < Y:
+                                        if image[ii+x, jj+y] == unlabeled:
+                                            image[ii+x, jj+y] = current_label
+                                            stack.append((ii+x, jj+y))
+                        #print(stack)
+                    continue
+            if change_flag:
+                continue
+                
+    # "normalize" such that max(image) = number of drains
+    for i in range (0,X):
+        for j in range(0,Y):
+            if image[i,j] > 0:
+                image[i,j] = image[i,j] - unlabeled
+    return int(np.amax(image))
+            
+    

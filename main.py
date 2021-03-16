@@ -14,6 +14,7 @@ import math
 import numpy as np
 import cv2
 import copy
+import random
 from utils import *
 
 def main(argv):
@@ -27,7 +28,7 @@ def main(argv):
     
     # assume a square kernel
     kernel_size = 5
-    sigma = 1/math.sqrt(3)
+    sigma = 3
     threshold = [10, 15]
     image = 'img/test.png'
     minima = 3
@@ -38,7 +39,7 @@ def main(argv):
         print(opt, arg)
         if opt == '-h':
             print(usage)
-            print("Example usage: main.py -i elk -s x -n x -m x -v False")
+            print("Example usage: main.py -i coins -s x -n x -m x -v False")
             print("\tImage (str): elk, coins, coins_g, moon")
             print("\tScale (integer): ")
             print("\tNoise (integer): ")
@@ -112,59 +113,109 @@ def main(argv):
         pass
         #cv2.imwrite('blurred_' + str(kernel_size) + '_' + image.rsplit("/", 1)[1].rsplit(".", 1)[0] + '.png', x)
         
-    # find our drains
-    drains = [ [] for _ in range(minima)]
-    xt = copy.deepcopy(np.round(x, decimals=0))
-    for i in range(0, minima):
-        # find indices and value of most minimum point
-        mind = np.unravel_index(np.argmin(xt, axis=None), xt.shape)
-        val = xt[mind[0], mind[1]]
-        print(val)
-        
-        # set up lists to blob from
-        inlist = [mind]
-        outlist = []
-        while len(inlist) != 0:
-            px = inlist.pop()
-            if px not in outlist and px not in inlist:
-                print("({0}, {1}): {2}".format(px[0], px[1], xt[px[0], px[1]]))
-                # we don't need to evaluate this point again
-                outlist.append((px[0], px[1]))
-                
-                # check if the popped point should be in the drain
-                if xt[px[0], px[1]] == val:
-                    drains[i].append(px)
-                    xt[px[0], px[1]] = 255
-                    
-                    # add neighboring points (8-connectedness)
-                    for j in [px[0]-1, px[0], px[0]+1]:
-                        if j < 0 or j > xt.shape[0]-1:
-                            continue
-                        for k in [px[1]-1, px[1], px[1]+1]:
-                            if not(j == 0 and k == 0) and k > 0 and k < xt.shape[1]:
-                                inlist.append((j,k))
+    # find minima
+    L = np.zeros(x.shape)+1
+    change_in_label = True
+    count = 0
+    while change_in_label is True:
+        count = count + 1
+        change_in_label = False
+        for i in range(0, x.shape[0]):
+            for j in range(0, x.shape[1]):
+                if L[i,j] != 0:
+                    for q in neighbors((i,j), x):
+                        if x[i,j] > x[q[0], q[1]]: 
+                            # if p>q it cannot be minima
+                            L[i,j] = 0
+                            change_in_label = True
+                        if x[i,j] == x[q[0], q[1]] and L[q[0], q[1]] == 0: 
+                            #if p==q but q is not minima p cannot be either
+                            L[i,j] = 0
+                            change_in_label = True
+        #if verbose:
+        #    print("Minima finding iteration: {}".format(count))
+        #    xtc = cv2.cvtColor(np.array(255-copy.deepcopy(np.round(x, decimals=0))*255, dtype=np.uint8), cv2.COLOR_GRAY2RGB)
+        #    for i in range(0, x.shape[0]):
+        #        for j in range(0, x.shape[1]):
+        #            if L[i,j] == 0:
+        #                xtc[i, j] = (0, 0, 255)
+        #    cv2.imwrite('out/minima_pass={}.png'.format(count), xtc)
     
+    # save image with labeled minima
     if verbose:
-        cv2.imwrite('out/drains_test.png', xt)
-        xtc = np.array(xt * 255, dtype = np.uint8)
-        xtc = cv2.cvtColor(xtc, cv2.COLOR_GRAY2RGB)
-        i = 0
-        for d in drains:
-            for p in d:
-                xtc[p[0], p[1]] = (255 / minima * (i+1), 0, 255)
-            i = i + 1
-        cv2.imwrite('out/drains_identified.png', xtc)
+        print("Minima-finding iterations: {}".format(count))
+        xtc = cv2.cvtColor(np.array(255-copy.deepcopy(np.round(x, decimals=0))*255, dtype=np.uint8), cv2.COLOR_GRAY2RGB)
+        for i in range(0, x.shape[0]):
+            for j in range(0, x.shape[1]):
+                if L[i,j] == 1:
+                    xtc[i, j] = (0, 0, 255)
+        cv2.imwrite('out/minima.png', xtc)
+        
+    # grow drain interiors
+    num_drains = grow_regions(L, unlabeled=1)
     
-    ''' Calculate intensity gradient '''
-    grady = np.array([[0,0,0],[0,1,0],[0,0,0]]) # this shouldn't be used but is here just in case
-    if "sobel" in operator:
-        grady = 1/8*np.array([[-1,-2,-1],[0,0,0],[1,2,1]])
-    elif "prewitt" in operator:
-        grady = 1/6*np.array([[-1,-1,-1],[0,0,0],[1,1,1]])
-    gradx = np.transpose(grady) # we're dealing with symmetric kernels
+    rand_bgr = np.random.randint(255, size=(num_drains+1, 3))
+    if verbose:
+        print("Number of drains: {}".format(num_drains))
+        xtc = cv2.cvtColor(np.array(255-copy.deepcopy(np.round(x, decimals=0))*255, dtype=np.uint8), cv2.COLOR_GRAY2RGB)
+        for i in range(0, x.shape[0]):
+            for j in range(0, x.shape[1]):
+                if L[i,j] > 0:
+                    xtc[i, j] = (rand_bgr[int(L[i,j]), 0], rand_bgr[int(L[i,j]), 1], rand_bgr[int(L[i,j]), 2])
+        cv2.imwrite('out/drains.png', xtc)
     
-    dy = image_filter2d(x, grady)
-    dx = image_filter2d(x, gradx)
+    # fill basins
+    Vl = []
+    Vv = []
+    for i in range(x.shape[0]):
+        for j in range(x.shape[1]):
+            # make lists of coordinates and their values
+            if L[i,j] == 0:
+                Vl.append((i,j))
+                Vv.append(x[i,j])
+                
+    # sort the pixel coordinate list by the brightness
+    V = [e for _,e in sorted(zip(Vv,Vl))]
+    while V:
+        p = V.pop(0)
+        
+        # find drain label
+        for q in neighbors(p,L,connectedness=4):
+            if L[q] > 0:
+                L[p] = L[q]
+                print(L[p])
+                break
+        
+        # assign upstream pixels
+        for q in neighbors(p,x,connectedness=4):
+            if q not in V:
+                break
+            slope = x[q] - x[p]
+            # check if p downstream from q
+            maximal = True
+            for r in neighbors(q,x,connectedness=4):
+                if r == p:
+                    pass
+                if x[q] - x[r] > slope:
+                    maximal = False
+                    break
+            if maximal:
+                print(slope)
+                if L[q] > 0:
+                    # already labeled
+                    L[q] = num_drains + 1
+                else:
+                    L[q] = L[p]
+                    
+    if verbose:
+        xtc = cv2.cvtColor(np.array(copy.deepcopy(np.round(L, decimals=0)), dtype=np.uint8), cv2.COLOR_GRAY2RGB)
+        for i in range(0, x.shape[0]):
+            for j in range(0, x.shape[1]):
+                if L[i,j] < num_drains+1:
+                    xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
+                else:
+                    xtc[i,j] = (0,0,0)
+        cv2.imwrite('out/basins.png', xtc)
     
     
     
