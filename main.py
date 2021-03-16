@@ -15,6 +15,7 @@ import numpy as np
 import cv2
 import copy
 import random
+from timeit import default_timer as timer
 from utils import *
 
 def main(argv):
@@ -27,13 +28,11 @@ def main(argv):
         sys.exit(2)
     
     # assume a square kernel
-    kernel_size = 5
+    kernel_size = 9
     sigma = 3
-    threshold = [10, 15]
     image = 'img/test.png'
-    minima = 3
     verbose = False
-    operator = "sobel"
+    connect = 4
     
     for opt, arg in opts:
         print(opt, arg)
@@ -101,22 +100,20 @@ def main(argv):
     img = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
     
     # pad image
-    pad_amount = int(img.shape[0]/4)
+    start = timer()
+    pad_amount = int(img.shape[0]/8)
     pad = pad_array(img, pad_amount)
-    if verbose:
-        pass
-        #cv2.imwrite('pad_' + str(pad_amount) + '_' + image.rsplit("/", 1)[1].rsplit(".", 1)[0] + '.png', pad)
     
     # blur image
     x = image_filter2d(pad, H)[pad_amount:pad_amount+img.shape[0], pad_amount:pad_amount+img.shape[1]]
-    if verbose:
-        pass
-        #cv2.imwrite('blurred_' + str(kernel_size) + '_' + image.rsplit("/", 1)[1].rsplit(".", 1)[0] + '.png', x)
+    end = timer()
+    print("\nTime taken for preprocessing: {0:.3f}".format(end - start))
         
     # find minima
     L = np.zeros(x.shape)+1
     change_in_label = True
     count = 0
+    start = timer()
     while change_in_label is True:
         count = count + 1
         change_in_label = False
@@ -124,22 +121,16 @@ def main(argv):
             for j in range(0, x.shape[1]):
                 if L[i,j] != 0:
                     for q in neighbors((i,j), x):
-                        if x[i,j] > x[q[0], q[1]]: 
+                        if x[i,j] > x[q]: 
                             # if p>q it cannot be minima
                             L[i,j] = 0
                             change_in_label = True
-                        if x[i,j] == x[q[0], q[1]] and L[q[0], q[1]] == 0: 
-                            #if p==q but q is not minima p cannot be either
+                        if x[i,j] == x[q] and L[q] == 0: 
+                            # if p==q but q is not minima p cannot be either
                             L[i,j] = 0
                             change_in_label = True
-        #if verbose:
-        #    print("Minima finding iteration: {}".format(count))
-        #    xtc = cv2.cvtColor(np.array(255-copy.deepcopy(np.round(x, decimals=0))*255, dtype=np.uint8), cv2.COLOR_GRAY2RGB)
-        #    for i in range(0, x.shape[0]):
-        #        for j in range(0, x.shape[1]):
-        #            if L[i,j] == 0:
-        #                xtc[i, j] = (0, 0, 255)
-        #    cv2.imwrite('out/minima_pass={}.png'.format(count), xtc)
+    end = timer()
+    print("\nTime taken to find minima: {0:.3f}".format(end - start))
     
     # save image with labeled minima
     if verbose:
@@ -152,7 +143,10 @@ def main(argv):
         cv2.imwrite('out/minima.png', xtc)
         
     # grow drain interiors
-    num_drains = grow_regions(L, unlabeled=1)
+    start = timer()
+    num_drains = grow_regions(L, unlabeled=1, connectedness=connect)
+    end = timer()
+    print("\nTime taken to grow drains: {0:.3f}".format(end - start))
     
     rand_bgr = np.random.randint(255, size=(num_drains+1, 3))
     if verbose:
@@ -164,7 +158,7 @@ def main(argv):
                     xtc[i, j] = (rand_bgr[int(L[i,j]), 0], rand_bgr[int(L[i,j]), 1], rand_bgr[int(L[i,j]), 2])
         cv2.imwrite('out/drains.png', xtc)
     
-    # fill basins
+    # prep V structure
     Vl = []
     Vv = []
     for i in range(x.shape[0]):
@@ -176,37 +170,46 @@ def main(argv):
                 
     # sort the pixel coordinate list by the brightness
     V = [e for _,e in sorted(zip(Vv,Vl))]
+    
+    # fill basins
+    start = timer()
     while V:
         p = V.pop(0)
         
         # find drain label
-        for q in neighbors(p,L,connectedness=4):
-            if L[q] > 0:
-                L[p] = L[q]
-                print(L[p])
-                break
+        for q in neighbors(p,L,connectedness=connect):
+            try:
+                if L[q] > 0:
+                    L[p] = L[q]
+                    break
+            except IndexError:
+                print("p: {}\tq: {}".format(p,q))
+            
         
         # assign upstream pixels
-        for q in neighbors(p,x,connectedness=4):
+        for q in neighbors(p,x,connectedness=connect):
             if q not in V:
                 break
             slope = x[q] - x[p]
             # check if p downstream from q
             maximal = True
-            for r in neighbors(q,x,connectedness=4):
+            for r in neighbors(q,x,connectedness=connect):
                 if r == p:
-                    pass
+                    continue
                 if x[q] - x[r] > slope:
                     maximal = False
                     break
             if maximal:
-                print(slope)
+                #print(slope)
                 if L[q] > 0:
                     # already labeled
                     L[q] = num_drains + 1
                 else:
                     L[q] = L[p]
-                    
+        #print(len(V))
+    end = timer()
+    print("\nTime taken to grow basins: {0:.3f}".format(end - start))
+        
     if verbose:
         xtc = cv2.cvtColor(np.array(copy.deepcopy(np.round(L, decimals=0)), dtype=np.uint8), cv2.COLOR_GRAY2RGB)
         for i in range(0, x.shape[0]):

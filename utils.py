@@ -105,17 +105,17 @@ def neighbors(pixelpos, image, connectedness=8):
                             n.append((x+i,y+j))
     elif connectedness == 4:
         if x > 0:
-            n.append((-1, 0))
-        if x < X:
-            n.append((1, 0))
+            n.append((x-1, y))
+        if x < X-1:
+            n.append((x+1, y))
         if y > 0:
-            n.append((0, -1))
-        if y < Y:
-            n.append((0, 1))
+            n.append((x, y-1))
+        if y < Y-1:
+            n.append((x, y+1))
     return n
     
     
-def grow_regions(image, unlabeled=0):
+def grow_regions(image, unlabeled=0, connectedness=8):
     X,Y = image.shape
     next_label = unlabeled + 1
     change_flag = True
@@ -126,30 +126,23 @@ def grow_regions(image, unlabeled=0):
                 if image[i,j] == unlabeled:
                     # start labeling a new region
                     current_label = next_label
-                    #print(current_label)
                     next_label = next_label + 1
                     change_flag = True
                     
                     # grow that region
                     stack = [(i,j)]
-                    while len(stack) > 0:
+                    while stack:
                         p = stack.pop(-1)
-                        x = p[0]
-                        y = p[1]
-                        #print(x,y)
-                        for ii in [-1, 0, 1]:
-                            if ii+x > -1 and ii+x < X:
-                                for jj in [-1, 0, 1]:
-                                    if jj+y > -1 and jj+y < Y:
-                                        if image[ii+x, jj+y] == unlabeled:
-                                            image[ii+x, jj+y] = current_label
-                                            stack.append((ii+x, jj+y))
-                        #print(stack)
-                    continue
+                        image[p] = current_label
+                        for q in neighbors(p, image, connectedness):
+                            if image[q] == unlabeled:
+                                image[q] = current_label
+                                stack.append(q)
+                    break
             if change_flag:
-                continue
+                break
                 
-    # "normalize" such that max(image) = number of drains
+    # "normalize" such that max(image) = number of regions
     for i in range (0,X):
         for j in range(0,Y):
             if image[i,j] > 0:
