@@ -1,2 +1,3 @@
 %windir%\System32\cmd.exe "/K" D:\Programs\Anaconda\Scripts\activate.bat D:\Programs\Anaconda
-start /B conda run -n base main.py -v true
+start /B conda run -n base main.py -v true -i elk
+start /B conda run -n base main.py -v true -i moon

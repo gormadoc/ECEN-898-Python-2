@@ -115,28 +115,32 @@ def neighbors(pixelpos, image, connectedness=8):
     return n
     
     
-def grow_regions(image, unlabeled=0, connectedness=8):
+def grow_regions(image, labels, unlabeled=0, connectedness=8):
     X,Y = image.shape
     next_label = unlabeled + 1
     change_flag = True
+    regions = []
+    vals = []
     while change_flag:
         change_flag = False
         for i in range(0,X):
             for j in range(0,Y):
-                if image[i,j] == unlabeled:
+                if labels[i,j] == unlabeled:
                     # start labeling a new region
                     current_label = next_label
                     next_label = next_label + 1
                     change_flag = True
+                    regions.append(current_label-unlabeled)
+                    vals.append(image[i,j])
                     
                     # grow that region
                     stack = [(i,j)]
                     while stack:
                         p = stack.pop(-1)
-                        image[p] = current_label
-                        for q in neighbors(p, image, connectedness):
-                            if image[q] == unlabeled:
-                                image[q] = current_label
+                        labels[p] = current_label
+                        for q in neighbors(p, labels, connectedness):
+                            if labels[q] == unlabeled:
+                                labels[q] = current_label
                                 stack.append(q)
                     break
             if change_flag:
@@ -145,8 +149,8 @@ def grow_regions(image, unlabeled=0, connectedness=8):
     # "normalize" such that max(image) = number of regions
     for i in range (0,X):
         for j in range(0,Y):
-            if image[i,j] > 0:
-                image[i,j] = image[i,j] - unlabeled
-    return int(np.amax(image))
+            if labels[i,j] > 0:
+                labels[i,j] = labels[i,j] - unlabeled
+    return regions, vals
             
     

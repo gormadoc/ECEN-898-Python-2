@@ -1,14 +1,5 @@
 #!/usr/bin/env python
 
-# Canny edge detection
-'''
-1. Gaussian filter smoothing (done)
-2. Find intensity gradient
-3. Pre-massage with gradient magnitude thresholding or lower bound cut-off suppression
-4. Apply double threshold to find potential edges
-5. Track edge by hysteresis: finalize detection by suppressing weak edges not connected to strong edges
-'''
-
 import sys, getopt, os
 import math
 import numpy as np
@@ -19,9 +10,9 @@ from timeit import default_timer as timer
 from utils import *
 
 def main(argv):
-    usage = "main.py -i <image)> -s <scale> -n <noise> -m <minima>  -v <verbosity>"
+    usage = "main.py -i <image)> -s <sigma> -n <noise> -m <minima>  -v <verbosity> -k <kernel_size> -c <connectedness>"
     try:
-        opts, args = getopt.getopt(argv, "hi:s:n:m:v:")
+        opts, args = getopt.getopt(argv, "hi:s:n:m:v:k:c:")
     except getopt.GetoptError:
         print(usage)
         print("Use\n\tmain.py -h\nto learn how to use this and run default settings")
@@ -33,6 +24,7 @@ def main(argv):
     image = 'img/test.png'
     verbose = False
     connect = 4
+    minima = 1000
     
     for opt, arg in opts:
         print(opt, arg)
@@ -40,14 +32,14 @@ def main(argv):
             print(usage)
             print("Example usage: main.py -i coins -s x -n x -m x -v False")
             print("\tImage (str): elk, coins, coins_g, moon")
-            print("\tScale (integer): ")
+            print("\tSigma (float): ")
             print("\tNoise (integer): ")
             print("\tMinima (integer): ")
             print("\tVerbosity (str): True, False")
             print("No required arguments")
         elif opt == '-s':
             try:
-                kernel_size = int(arg)
+                sigma = float(arg)
             except ValueError:
                 print("Kernel size must be an integer")
                 sys.exit(2)
@@ -68,8 +60,10 @@ def main(argv):
                 image = 'img/coins2.png'
             elif "coins" in arg.lower():
                 image = 'img/coins.png'
-            elif "stone" in arg.lower():
+            elif "moon" in arg.lower():
                 image = 'img/moon.jpg'
+            elif "test" in arg.lower():
+                image = 'img/test.png'
             else:
                 print("Use\n\tmain.py -h\nto learn how to use the image argument; defaulting to elk")
         elif opt == '-m':
@@ -86,6 +80,23 @@ def main(argv):
             else:
                 print("Use\n\tmain.py -h\nto learn how to use the verbosity argument; defaulting to False")
                 verbose = False
+        elif opt == '-k':
+            try:
+                kernel_size = int(arg)
+            except ValueError:
+                print("Kernel size must be an integer")
+                sys.exit(2)
+        elif opt == '-c':
+            try:
+                if int(arg) == 4:
+                    connect = 4
+                elif int(arg) == 8:
+                    connect = 8
+                else:
+                    connect = 4
+            except:
+                print("Connectedness must be '4' or '8'")
+            
     
     if kernel_size % 2 == 1:
         k = (kernel_size - 1)/2
@@ -101,11 +112,11 @@ def main(argv):
     
     # pad image
     start = timer()
-    pad_amount = int(img.shape[0]/8)
+    pad_amount = 16
     pad = pad_array(img, pad_amount)
     
     # blur image
-    x = image_filter2d(pad, H)[pad_amount:pad_amount+img.shape[0], pad_amount:pad_amount+img.shape[1]]
+    x = (image_filter2d(pad, H)[pad_amount:pad_amount+img.shape[0], pad_amount:pad_amount+img.shape[1]]).round(decimals=0)
     end = timer()
     print("\nTime taken for preprocessing: {0:.3f}".format(end - start))
         
@@ -132,7 +143,7 @@ def main(argv):
     end = timer()
     print("\nTime taken to find minima: {0:.3f}".format(end - start))
     
-    # save image with labeled minima
+    # save image with minima
     if verbose:
         print("Minima-finding iterations: {}".format(count))
         xtc = cv2.cvtColor(np.array(255-copy.deepcopy(np.round(x, decimals=0))*255, dtype=np.uint8), cv2.COLOR_GRAY2RGB)
@@ -144,18 +155,35 @@ def main(argv):
         
     # grow drain interiors
     start = timer()
-    num_drains = grow_regions(L, unlabeled=1, connectedness=connect)
+    drains, drain_values = grow_regions(x, L, unlabeled=1, connectedness=connect)
+    num_drains = len(drains)
+    if num_drains > minima:
+        drains = [e for _,e in sorted(zip(drain_values,drains))]
+        drain_values = sorted(drain_values)
+        while len(drains) > minima:
+            drains.pop(-1)
+            drain_values.pop(-1)
+        for i in range(0, L.shape[0]):
+            for j in range(0, L.shape[1]):
+                if L[i,j] not in drains:
+                    L[i,j] = 0
+                else:
+                    L[i,j] = drain_values.index(x[i,j])+1
+        drains = []
+        for i in range(1, len(drain_values)+1):
+            drains.append(i)
+        num_drains = len(drains)
     end = timer()
     print("\nTime taken to grow drains: {0:.3f}".format(end - start))
     
-    rand_bgr = np.random.randint(255, size=(num_drains+1, 3))
+    rand_bgr = np.random.randint(255, size=(num_drains, 3))
     if verbose:
         print("Number of drains: {}".format(num_drains))
         xtc = cv2.cvtColor(np.array(255-copy.deepcopy(np.round(x, decimals=0))*255, dtype=np.uint8), cv2.COLOR_GRAY2RGB)
         for i in range(0, x.shape[0]):
             for j in range(0, x.shape[1]):
                 if L[i,j] > 0:
-                    xtc[i, j] = (rand_bgr[int(L[i,j]), 0], rand_bgr[int(L[i,j]), 1], rand_bgr[int(L[i,j]), 2])
+                    xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
         cv2.imwrite('out/drains.png', xtc)
     
     # prep V structure
@@ -191,12 +219,17 @@ def main(argv):
             if q not in V:
                 break
             slope = x[q] - x[p]
+            if q[0] != p[0] and q[1] != p[1]:
+                slope = slope / 1.414
             # check if p downstream from q
             maximal = True
             for r in neighbors(q,x,connectedness=connect):
                 if r == p:
                     continue
-                if x[q] - x[r] > slope:
+                slopet = x[q] - x[r]
+                if q[0] != r[0] and q[1] != r[1]:
+                    slopet = slopet / 1.414
+                if slopet > slope:
                     maximal = False
                     break
             if maximal:
@@ -210,15 +243,14 @@ def main(argv):
     end = timer()
     print("\nTime taken to grow basins: {0:.3f}".format(end - start))
         
-    if verbose:
-        xtc = cv2.cvtColor(np.array(copy.deepcopy(np.round(L, decimals=0)), dtype=np.uint8), cv2.COLOR_GRAY2RGB)
-        for i in range(0, x.shape[0]):
-            for j in range(0, x.shape[1]):
-                if L[i,j] < num_drains+1:
-                    xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
-                else:
-                    xtc[i,j] = (0,0,0)
-        cv2.imwrite('out/basins.png', xtc)
+    xtc = cv2.cvtColor(np.array(copy.deepcopy(np.round(L, decimals=0)), dtype=np.uint8), cv2.COLOR_GRAY2RGB)
+    for i in range(0, x.shape[0]):
+        for j in range(0, x.shape[1]):
+            if L[i,j] in drains:
+                xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
+            else:
+                xtc[i,j] = (125,125,125)
+    cv2.imwrite('out/basins.png', xtc)
     
     
     

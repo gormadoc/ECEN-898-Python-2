@@ -1,0 +1,13 @@
+-v true
+-i elk
+-m 50
+
+Time taken for preprocessing: 21.588
+
+Time taken to find minima: 5.212
+Minima-finding iterations: 18
+
+Time taken to grow drains: 11.540
+Number of drains: 50
+
+Time taken to grow basins: 438.765

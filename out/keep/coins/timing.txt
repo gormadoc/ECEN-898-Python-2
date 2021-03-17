@@ -1,0 +1,9 @@
+preproc 25.476
+
+time minima 2.334
+iterations 2
+
+time drains 11.522
+drain number 405
+
+time grow basins 173.742
