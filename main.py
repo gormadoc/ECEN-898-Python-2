@@ -215,6 +215,7 @@ def main(argv):
             
         
         # assign upstream pixels
+        # get all neighbors of p
         for q in neighbors(p,x,connectedness=connect):
             if q not in V:
                 break
@@ -237,6 +238,7 @@ def main(argv):
                 if L[q] > 0:
                     # already labeled
                     L[q] = num_drains + 1
+                    #print(L[q])
                 else:
                     L[q] = L[p]
         #print(len(V))
@@ -249,6 +251,8 @@ def main(argv):
             if L[i,j] in drains:
                 xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
             else:
+                if L[i,j] > num_drains:
+                    print("watershed")
                 xtc[i,j] = (125,125,125)
     cv2.imwrite('out/basins.png', xtc)
     

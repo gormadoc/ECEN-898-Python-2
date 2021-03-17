@@ -1,0 +1,14 @@
+-v true
+-i coins
+-m 50
+-c 4
+
+Time taken for preprocessing: 10.637
+
+Time taken to find minima: 2.592
+Minima-finding iterations: 18
+
+Time taken to grow drains: 3.193
+Number of drains: 50
+
+Time taken to grow basins: 64.944
