@@ -164,8 +164,6 @@ def is_downstream(image, p, q, connectedness=8):
             factor = 1.414
         slope = (image[q] - image[r]) / factor
         slopes[r] = slope
-    if p == (2,2):
-        print(p, q, slopes)
     if slopes[p] == max(slopes.values()):
         return True
     else:
@@ -173,44 +171,5 @@ def is_downstream(image, p, q, connectedness=8):
         
 def is_upstream(image, p, q, connectedness=8):
     return is_downstream(image, q, p, connectedness)
-
-
-def calc_downstream(image, p, V, connectedness=8):
-    # check only downstream neighbors still in V
-    ns = neighbors(image, p, connectedness)
-    qs = []
-    for n in ns:
-        if n in V:
-            qs.append(n)
-    
-    # get slopes for remaining neighbors
-    slopes = []    
-    for q in qs:
-        # different distance for diagonal vs lateral neighbor
-        if q[0] == p[0] or q[1] == p[1]:
-            factor = 1
-        else:
-            factor = 1.414
-            
-        # just get all the slopes in order
-        slopes.append((image[p]-image[q])/factor)
-    print(qs, slopes)
-    # build a return vector of all remaining neighbors with maximal slope
-    retv = []
-    for i in range(0, len(qs)):
-        if slopes[i] == max(slopes):
-            retv.append(qs[i])
-    return retv
-    
-    
-def calc_upstream(image, p, V, connectedness=8):
-    retv = []
-    for q in neighbors(image, p, connectedness):
-        # if p is downstream of q, q is upstream of p
-        print(q, calc_downstream(image, q, V, connectedness))
-        if p in calc_downstream(image, q, V, connectedness):
-            print(p)
-            retv.append(q)
-    return retv
     
     
