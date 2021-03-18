@@ -1,4 +1,5 @@
-%windir%\System32\cmd.exe "/K" D:\Programs\Anaconda\Scripts\activate.bat D:\Programs\Anaconda
+Rem %windir%\System32\cmd.exe "/K" F:\Programs\Anaconda3_2020.11\Scripts\activate.bat F:\Programs\Anaconda3_2020.11
+
 start /B conda run -n base main.py -v true -i test -c 4
 start /B conda run -n base main.py -v true -i elk -c 4
 start /B conda run -n base main.py -v true -i elk -c 8
