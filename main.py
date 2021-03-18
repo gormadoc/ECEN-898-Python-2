@@ -31,7 +31,7 @@ def main(argv):
         print(opt, arg)
         if opt == '-h':
             print(usage)
-            print("Example usage: main.py -i coins -s x -n x -m x -v False")
+            print("Example usage: main.py -i coins -s x -n x -m x -v False -c 4")
             print("\tImage (str): elk, coins, coins_g, moon")
             print("\tSigma (float): ")
             print("\tNoise (integer): ")
@@ -41,8 +41,9 @@ def main(argv):
         elif opt == '-s':
             try:
                 sigma = float(arg)
+                kernel_size = int(round(4 * sigma))
             except ValueError:
-                print("Kernel size must be an integer")
+                print("Sigma must be a number")
                 sys.exit(2)
         elif opt == '-i':
             if "elk" in arg.lower():
