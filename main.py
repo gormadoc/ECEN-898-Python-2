@@ -93,10 +93,8 @@ def main(argv):
     file_suffix = '_m_' + str(minima) + '_c_' + str(connect) + '_s_' + str(sigma) + '_k_' + str(kernel_size) + '_' + image.rsplit("/", 1)[1].rsplit(".", 1)[0] + '.png'
             
     
-    if kernel_size % 2 == 1:
-        k = (kernel_size - 1)/2
-    else:
-        k = kernel_size / 2
+    if kernel_size % 2 == 0:
+        kernel_size = kernel_size + 1
     
     ''' Blur image '''
     # create Gaussian
