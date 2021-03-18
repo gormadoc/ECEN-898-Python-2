@@ -26,9 +26,14 @@ def main(argv):
     connect = 4
     minima = 1000
     mini_test = False
+    noise = 0
+    
+    # prepare file names
+    file_suffix = image.rsplit("/", 1)[1].rsplit(".", 1)[0] + '_c_' + str(connect) + '_m_' + str(minima) + '_n_' + str(noise) + '_s_' + str(sigma) + '_k_' + str(kernel_size) 
+    logfile = 'out/' + file_suffix + '_info.txt'
     
     for opt, arg in opts:
-        print(opt, arg)
+        log("{0} {1}".format(opt, arg))
         if opt == '-h':
             print(usage)
             print("Example usage: main.py -i coins -s x -n x -m x -v False -c 4")
@@ -56,6 +61,8 @@ def main(argv):
                 image = 'img/moon.jpg'
             elif "test" in arg.lower():
                 image = 'img/test.png'
+            elif "book" in arg.lower():
+                mini_test = True
             else:
                 print("Use\n\tmain.py -h\nto learn how to use the image argument; defaulting to elk")
         elif opt == '-m':
@@ -89,16 +96,9 @@ def main(argv):
             except:
                 print("Connectedness must be '4' or '8'")
                 
-                
-    file_suffix = '_m_' + str(minima) + '_c_' + str(connect) + '_s_' + str(sigma) + '_k_' + str(kernel_size) + '_' + image.rsplit("/", 1)[1].rsplit(".", 1)[0] + '.png'
-            
-    
+    # Force kernels to be odd
     if kernel_size % 2 == 0:
         kernel_size = kernel_size + 1
-    
-    ''' Blur image '''
-    # create Gaussian
-    H = Gaussian2D(kernel_size, sigma)
     
     # load image
     img = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
@@ -108,11 +108,13 @@ def main(argv):
     pad_amount = 16
     pad = pad_array(img, pad_amount)
     
-    # blur image
+    # blur image and crop to original image
+    H = Gaussian2D(kernel_size, sigma)
     x = (image_filter2d(pad, H)[pad_amount:pad_amount+img.shape[0], pad_amount:pad_amount+img.shape[1]]).round(decimals=0)
     end = timer()
-    print("\nTime taken for preprocessing: {0:.3f}".format(end - start))
-        
+    log("\nTime taken for preprocessing: {0:.3f}".format(end - start), file=logfile)
+       
+    # book example for testing
     if mini_test:
         x = np.array([[53,52,51,53,52,51,53,50,51],[49,50,49,51,40,41,39,41,40],[48,47,12,12,18,19,16,15,20],[46,41,12,12,19,20,17,15,16],[45,42,12,15,18,17,19,17,18],[46,44,43,44,41,16,18,20,19]])
         print(x)
@@ -138,7 +140,7 @@ def main(argv):
                             L[i,j] = 0
                             change_in_label = True
     end = timer()
-    print("\nTime taken to find minima: {0:.3f}".format(end - start))
+    log("\nTime taken to find minima: {0:.3f}".format(end - start), file=logfile)
     
     if mini_test:
         print(x)
@@ -146,13 +148,13 @@ def main(argv):
     
     # save image with minima
     if verbose:
-        print("Minima-finding iterations: {}".format(count))
+        log("Minima-finding iterations: {}".format(count), file=logfile)
         xtc = cv2.cvtColor(np.array(255-copy.deepcopy(np.round(x, decimals=0))*255, dtype=np.uint8), cv2.COLOR_GRAY2RGB)
         for i in range(0, x.shape[0]):
             for j in range(0, x.shape[1]):
                 if L[i,j] == 1:
                     xtc[i, j] = (0, 0, 255)
-        cv2.imwrite('out/minima' + file_suffix, xtc)
+        cv2.imwrite('out/' + file_suffix + '_minima.png', xtc)
         
     # grow drain interiors
     start = timer()
@@ -175,7 +177,7 @@ def main(argv):
             drains.append(i)
         num_drains = len(drains)
     end = timer()
-    print("\nTime taken to grow drains: {0:.3f}".format(end - start))
+    log("\nTime taken to grow drains: {0:.3f}".format(end - start), file=logfile)
     
     if mini_test:
         print(x)
@@ -183,13 +185,13 @@ def main(argv):
     
     rand_bgr = np.random.randint(255, size=(num_drains, 3))
     if verbose:
-        print("Number of drains: {}".format(num_drains))
+        log("Number of drains: {}".format(num_drains), file=logfile)
         xtc = cv2.cvtColor(np.array(255-copy.deepcopy(np.round(x, decimals=0))*255, dtype=np.uint8), cv2.COLOR_GRAY2RGB)
         for i in range(0, x.shape[0]):
             for j in range(0, x.shape[1]):
                 if L[i,j] > 0:
                     xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
-        cv2.imwrite('out/drains' + file_suffix, xtc)
+        cv2.imwrite('out/' + file_suffix + 'drains.png', xtc)
     
     # prep V structure
     start = timer()
@@ -211,7 +213,7 @@ def main(argv):
     V = [e for _,e in sorted(zip(Vv,Vl))]
     
     end = timer()
-    print("\nTime taken to prep sorted queue: {0:.3f}".format(end - start))
+    log("\nTime taken to prep sorted queue: {0:.3f}".format(end - start), file=logfile)
     
     # fill basins
     start = timer()
@@ -232,7 +234,7 @@ def main(argv):
         mask[p] = 255
         
     end = timer()
-    print("\nTime taken to grow basins: {0:.3f}".format(end - start))
+    log("\nTime taken to grow basins: {0:.3f}".format(end - start), file=logfile)
     
     if mini_test:
         print(x)
@@ -245,7 +247,7 @@ def main(argv):
                 xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
             else:
                 xtc[i,j] = (125,125,125)
-    cv2.imwrite('out/basins' + file_suffix, xtc)
+    cv2.imwrite('out/' + file_suffix + '_basins.png', xtc)
     
     
     

@@ -14,6 +14,13 @@ import math
 import numpy as np
 
 
+def log(message, file=None):
+    if not file:
+        print(message)
+    else:
+        with open(file, 'a') as f:
+            f.write(message)
+
 def pad_array(img, amount, method='replication'):
     method = method
     amount = amount
