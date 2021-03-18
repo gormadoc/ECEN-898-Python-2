@@ -28,12 +28,8 @@ def main(argv):
     mini_test = False
     noise = 0
     
-    # prepare file names
-    file_suffix = image.rsplit("/", 1)[1].rsplit(".", 1)[0] + '_c_' + str(connect) + '_m_' + str(minima) + '_n_' + str(noise) + '_s_' + str(sigma) + '_k_' + str(kernel_size) 
-    logfile = 'out/' + file_suffix + '_info.txt'
-    
     for opt, arg in opts:
-        log("{0} {1}".format(opt, arg))
+        log("{0} {1}".format(opt))
         if opt == '-h':
             print(usage)
             print("Example usage: main.py -i coins -s x -n x -m x -v False -c 4")
@@ -95,6 +91,10 @@ def main(argv):
                     connect = 4
             except:
                 print("Connectedness must be '4' or '8'")
+                
+    # prepare file names
+    file_suffix = image.rsplit("/", 1)[1].rsplit(".", 1)[0] + '_c_' + str(connect) + '_m_' + str(minima) + '_n_' + str(noise) + '_s_' + str(sigma) + '_k_' + str(kernel_size) 
+    logfile = 'out/' + file_suffix + '_info.txt'
                 
     # Force kernels to be odd
     if kernel_size % 2 == 0:
