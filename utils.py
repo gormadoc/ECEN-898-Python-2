@@ -19,7 +19,7 @@ def log(message, file=None):
         print(message)
     else:
         with open(file, 'a') as f:
-            f.write(message)
+            f.write(message + '\n')
 
 def pad_array(img, amount, method='replication'):
     method = method
@@ -171,6 +171,8 @@ def is_downstream(image, p, q, connectedness=8):
             factor = 1.414
         slope = (image[q] - image[r]) / factor
         slopes[r] = slope
+    if p == (0,2):
+        print(neighbors(image, q, connectedness))
     if slopes[p] == max(slopes.values()):
         return True
     else:

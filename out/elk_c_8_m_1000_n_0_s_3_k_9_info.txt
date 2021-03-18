@@ -1,0 +1,20 @@
+
+Time taken for preprocessing: 29.124
+
+Time taken to find minima: 6.874
+Minima-finding iterations: 18
+
+Time taken to grow drains: 12.958
+Number of drains: 268
+
+Time taken to prep sorted queue: 1.883
+
+Time taken for preprocessing: 19.091
+
+Time taken to find minima: 4.867
+Minima-finding iterations: 18
+
+Time taken to grow drains: 10.106
+Number of drains: 287
+
+Time taken to prep sorted queue: 1.302

@@ -29,7 +29,7 @@ def main(argv):
     noise = 0
     
     for opt, arg in opts:
-        log("{0} {1}".format(opt))
+        log("{0} {1}".format(opt, arg))
         if opt == '-h':
             print(usage)
             print("Example usage: main.py -i coins -s x -n x -m x -v False -c 4")
@@ -105,12 +105,15 @@ def main(argv):
     
     # pad image
     start = timer()
-    pad_amount = 16
-    pad = pad_array(img, pad_amount)
+    if kernel_size > 0:
+        pad_amount = int((kernel_size-1)/2)
+        pad = pad_array(img, pad_amount)
     
-    # blur image and crop to original image
-    H = Gaussian2D(kernel_size, sigma)
-    x = (image_filter2d(pad, H)[pad_amount:pad_amount+img.shape[0], pad_amount:pad_amount+img.shape[1]]).round(decimals=0)
+        # blur image and crop to original image
+        H = Gaussian2D(kernel_size, sigma)
+        x = (image_filter2d(pad, H)[pad_amount:pad_amount+img.shape[0], pad_amount:pad_amount+img.shape[1]]).round(decimals=0)
+    else:
+        x = img
     end = timer()
     log("\nTime taken for preprocessing: {0:.3f}".format(end - start), file=logfile)
        
@@ -160,6 +163,8 @@ def main(argv):
     start = timer()
     drains, drain_values = grow_regions(x, L, unlabeled=1, connectedness=connect)
     num_drains = len(drains)
+    
+    # discard larger drains over requested number of minima
     if num_drains > minima:
         drains = [e for _,e in sorted(zip(drain_values,drains))]
         drain_values = sorted(drain_values)
@@ -191,7 +196,7 @@ def main(argv):
             for j in range(0, x.shape[1]):
                 if L[i,j] > 0:
                     xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
-        cv2.imwrite('out/' + file_suffix + 'drains.png', xtc)
+        cv2.imwrite('out/' + file_suffix + '_drains.png', xtc)
     
     # prep V structure
     start = timer()
@@ -224,7 +229,7 @@ def main(argv):
             continue
         
         for q in neighbors(mask, p, connect):
-            if is_upstream(mask, q, p, connect) and q in V:
+            if q in V and is_upstream(mask, q, p, connect):
                 if L[q] == 0:
                     L[q] = L[p]
                 elif L[q] > 0 and L[q] != L[p]:
