@@ -21,10 +21,11 @@ def main(argv):
     # assume a square kernel
     kernel_size = 9
     sigma = 3
-    image = 'img/test.png'
+    image = 'img/elk.png'
     verbose = False
     connect = 4
     minima = 1000
+    mini_test = False
     
     for opt, arg in opts:
         print(opt, arg)
@@ -43,16 +44,6 @@ def main(argv):
             except ValueError:
                 print("Kernel size must be an integer")
                 sys.exit(2)
-        elif opt == '-t':
-            try:
-                threshold[0] = int(arg.rsplit(",")[0])
-                threshold[1] = int(arg.rsplit(",")[1])
-            except ValueError:
-                print("Threshold values must be integers")
-                sys.exit(2)
-            except IndexError:
-                print("Single-value threshold: {}".format(threshold[0]))
-                threshold[1] = threshold[0]
         elif opt == '-i':
             if "elk" in arg.lower():
                 image = 'img/elk.jpg'
@@ -96,6 +87,9 @@ def main(argv):
                     connect = 4
             except:
                 print("Connectedness must be '4' or '8'")
+                
+                
+    file_suffix = '_m_' + str(minima) + '_c_' + str(connect) + '_s_' + str(sigma) + '_k_' + str(kernel_size) + '_' + image.rsplit("/", 1)[1].rsplit(".", 1)[0] + '.png'
             
     
     if kernel_size % 2 == 1:
@@ -120,8 +114,12 @@ def main(argv):
     end = timer()
     print("\nTime taken for preprocessing: {0:.3f}".format(end - start))
         
+    if mini_test:
+        x = np.array([[53,52,51,53,52,51,53,50,51],[49,50,49,51,40,41,39,41,40],[48,47,12,12,18,19,16,15,20],[46,41,12,12,19,20,17,15,16],[45,42,12,15,18,17,19,17,18],[46,44,43,44,41,16,18,20,19]])
+        print(x)
+        
     # find minima
-    L = np.zeros(x.shape)+1
+    L = (np.zeros(x.shape)+1).astype(int)
     change_in_label = True
     count = 0
     start = timer()
@@ -131,7 +129,7 @@ def main(argv):
         for i in range(0, x.shape[0]):
             for j in range(0, x.shape[1]):
                 if L[i,j] != 0:
-                    for q in neighbors((i,j), x):
+                    for q in neighbors(x, (i,j)):
                         if x[i,j] > x[q]: 
                             # if p>q it cannot be minima
                             L[i,j] = 0
@@ -143,6 +141,10 @@ def main(argv):
     end = timer()
     print("\nTime taken to find minima: {0:.3f}".format(end - start))
     
+    if mini_test:
+        print(x)
+        print(L)
+    
     # save image with minima
     if verbose:
         print("Minima-finding iterations: {}".format(count))
@@ -151,7 +153,7 @@ def main(argv):
             for j in range(0, x.shape[1]):
                 if L[i,j] == 1:
                     xtc[i, j] = (0, 0, 255)
-        cv2.imwrite('out/minima.png', xtc)
+        cv2.imwrite('out/minima' + file_suffix, xtc)
         
     # grow drain interiors
     start = timer()
@@ -176,6 +178,10 @@ def main(argv):
     end = timer()
     print("\nTime taken to grow drains: {0:.3f}".format(end - start))
     
+    if mini_test:
+        print(x)
+        print(L)
+    
     rand_bgr = np.random.randint(255, size=(num_drains, 3))
     if verbose:
         print("Number of drains: {}".format(num_drains))
@@ -184,77 +190,63 @@ def main(argv):
             for j in range(0, x.shape[1]):
                 if L[i,j] > 0:
                     xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
-        cv2.imwrite('out/drains.png', xtc)
+        cv2.imwrite('out/drains' + file_suffix, xtc)
     
     # prep V structure
+    start = timer()
     Vl = []
     Vv = []
     for i in range(x.shape[0]):
         for j in range(x.shape[1]):
             # make lists of coordinates and their values
-            if L[i,j] == 0:
+            not_interior_flag = False
+            for q in neighbors(L, (i,j), connectedness=connect):
+                if L[q] == 0:
+                    not_interior_flag = True
+                    break
+            if not_interior_flag:
                 Vl.append((i,j))
                 Vv.append(x[i,j])
                 
     # sort the pixel coordinate list by the brightness
     V = [e for _,e in sorted(zip(Vv,Vl))]
     
+    end = timer()
+    print("\nTime taken to prep sorted queue: {0:.3f}".format(end - start))
+    
     # fill basins
     start = timer()
+    mask = copy.deepcopy(x)
     while V:
         p = V.pop(0)
+        if L[p] == 0:
+            continue
         
-        # find drain label
-        for q in neighbors(p,L,connectedness=connect):
-            try:
-                if L[q] > 0:
-                    L[p] = L[q]
-                    break
-            except IndexError:
-                print("p: {}\tq: {}".format(p,q))
-            
-        
-        # assign upstream pixels
-        # get all neighbors of p
-        for q in neighbors(p,x,connectedness=connect):
-            if q not in V:
-                break
-            slope = x[q] - x[p]
-            if q[0] != p[0] and q[1] != p[1]:
-                slope = slope / 1.414
-            # check if p downstream from q
-            maximal = True
-            for r in neighbors(q,x,connectedness=connect):
-                if r == p:
-                    continue
-                slopet = x[q] - x[r]
-                if q[0] != r[0] and q[1] != r[1]:
-                    slopet = slopet / 1.414
-                if slopet > slope:
-                    maximal = False
-                    break
-            if maximal:
-                #print(slope)
-                if L[q] > 0:
-                    # already labeled
-                    L[q] = num_drains + 1
-                    #print(L[q])
-                else:
+        for q in neighbors(mask, p, connect):
+            if is_upstream(mask, q, p, connect) and q in V:
+                if L[q] == 0:
                     L[q] = L[p]
-        #print(len(V))
+                elif L[q] > 0 and L[q] != L[p]:
+                    L[q] = num_drains+1
+                    V.pop(V.index(q))
+        # remove p from consideration without ruining function generality
+        mask[p] = 255
+        
     end = timer()
     print("\nTime taken to grow basins: {0:.3f}".format(end - start))
-        
+    
+    if mini_test:
+        print(x)
+        print(L)
+    
     xtc = cv2.cvtColor(np.array(copy.deepcopy(np.round(L, decimals=0)), dtype=np.uint8), cv2.COLOR_GRAY2RGB)
     for i in range(0, x.shape[0]):
         for j in range(0, x.shape[1]):
             if L[i,j] in drains:
                 xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
             else:
-                if L[i,j] > num_drains:
-                    print("watershed")
                 xtc[i,j] = (125,125,125)
-    cv2.imwrite('out/basins.png', xtc)
+    cv2.imwrite('out/basins' + file_suffix, xtc)
     
     
     

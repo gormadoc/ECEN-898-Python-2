@@ -85,10 +85,10 @@ def Gaussian2D(size, sigma):
     return H
 
 
-def neighbors(pixelpos, image, connectedness=8):
+def neighbors(image, p, connectedness=8):
     X,Y = image.shape
-    x = pixelpos[0]
-    y = pixelpos[1]
+    x = p[0]
+    y = p[1]
     n = []
     #print(X,Y,x,y)
     if connectedness == 8:
@@ -138,7 +138,7 @@ def grow_regions(image, labels, unlabeled=0, connectedness=8):
                     while stack:
                         p = stack.pop(-1)
                         labels[p] = current_label
-                        for q in neighbors(p, labels, connectedness):
+                        for q in neighbors(labels, p, connectedness):
                             if labels[q] == unlabeled:
                                 labels[q] = current_label
                                 stack.append(q)
@@ -153,4 +153,64 @@ def grow_regions(image, labels, unlabeled=0, connectedness=8):
                 labels[i,j] = labels[i,j] - unlabeled
     return regions, vals
             
+
+def is_downstream(image, p, q, connectedness=8):
+    slopes = {}
+    for r in neighbors(image, q, connectedness):
+        # different distance for diagonal vs lateral neighbor
+        if r[0] == q[0] or r[1] == q[1]:
+            factor = 1
+        else:
+            factor = 1.414
+        slope = (image[q] - image[r]) / factor
+        slopes[r] = slope
+    if p == (2,2):
+        print(p, q, slopes)
+    if slopes[p] == max(slopes.values()):
+        return True
+    else:
+        return False
+        
+def is_upstream(image, p, q, connectedness=8):
+    return is_downstream(image, q, p, connectedness)
+
+
+def calc_downstream(image, p, V, connectedness=8):
+    # check only downstream neighbors still in V
+    ns = neighbors(image, p, connectedness)
+    qs = []
+    for n in ns:
+        if n in V:
+            qs.append(n)
+    
+    # get slopes for remaining neighbors
+    slopes = []    
+    for q in qs:
+        # different distance for diagonal vs lateral neighbor
+        if q[0] == p[0] or q[1] == p[1]:
+            factor = 1
+        else:
+            factor = 1.414
+            
+        # just get all the slopes in order
+        slopes.append((image[p]-image[q])/factor)
+    print(qs, slopes)
+    # build a return vector of all remaining neighbors with maximal slope
+    retv = []
+    for i in range(0, len(qs)):
+        if slopes[i] == max(slopes):
+            retv.append(qs[i])
+    return retv
+    
+    
+def calc_upstream(image, p, V, connectedness=8):
+    retv = []
+    for q in neighbors(image, p, connectedness):
+        # if p is downstream of q, q is upstream of p
+        print(q, calc_downstream(image, q, V, connectedness))
+        if p in calc_downstream(image, q, V, connectedness):
+            print(p)
+            retv.append(q)
+    return retv
+    
     
