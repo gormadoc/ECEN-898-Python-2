@@ -126,6 +126,7 @@ def grow_regions(image, labels, unlabeled=0, connectedness=8):
     X,Y = image.shape
     next_label = unlabeled + 1
     change_flag = True
+    region_dic = {}
     regions = []
     vals = []
     while change_flag:
@@ -137,6 +138,7 @@ def grow_regions(image, labels, unlabeled=0, connectedness=8):
                     current_label = next_label
                     next_label = next_label + 1
                     change_flag = True
+                    regions[current_label-unlabeled] = image[i,j]
                     regions.append(current_label-unlabeled)
                     vals.append(image[i,j])
                     
