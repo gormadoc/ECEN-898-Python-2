@@ -108,7 +108,7 @@ def neighbors(image, p, connectedness=8):
                     if y+j > -1 and y+j < Y:
                         #print(y+j)mi
                         # p is not a neighbor of p
-                        if x+i != 0 and y+j != 0:
+                        if i != 0 and j != 0:
                             n.append((x+i,y+j))
     elif connectedness == 4:
         if x > 0:
@@ -171,8 +171,6 @@ def is_downstream(image, p, q, connectedness=8):
             factor = 1.414
         slope = (image[q] - image[r]) / factor
         slopes[r] = slope
-    if p == (0,2):
-        print(neighbors(image, q, connectedness))
     if slopes[p] == max(slopes.values()):
         return True
     else:

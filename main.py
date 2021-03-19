@@ -95,7 +95,8 @@ def main(argv):
     # prepare file names
     file_suffix = image.rsplit("/", 1)[1].rsplit(".", 1)[0] + '_c_' + str(connect) + '_m_' + str(minima) + '_n_' + str(noise) + '_s_' + str(sigma) + '_k_' + str(kernel_size) 
     logfile = 'out/' + file_suffix + '_info.txt'
-                
+    open(logfile, 'w').close()
+    
     # Force kernels to be odd
     if kernel_size % 2 == 0:
         kernel_size = kernel_size + 1
