@@ -1,5 +1,0 @@
-
-Time taken for preprocessing: 0.031
-
-Time taken to find minima: 1.047
-Minima-finding iterations: 4

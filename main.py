@@ -19,9 +19,9 @@ def main(argv):
         sys.exit(2)
     
     # assume a square kernel
-    kernel_size = 9
-    sigma = 3
-    image = 'img/elk.png'
+    kernel_size = 20
+    sigma = 5
+    image = 'img/elk.jpg'
     verbose = False
     connect = 4
     minima = 1000
@@ -41,6 +41,7 @@ def main(argv):
             print("\tKernel size(odd integer): size of blurring kernel, calculated from sigma if not specified")
             print("\tVerbosity (str): True, False")
             print("No required arguments")
+            print("To avoid blurring, sigma can be set to zero while not specifying kernel size or kernel size can be set to zero")
         elif opt == '-s':
             try:
                 sigma = float(arg)
@@ -131,10 +132,10 @@ def main(argv):
         
         # pad image, blur image, and crop to original image
         if kernel_size > 1:
-            pad_amount = int((kernel_size-1)/2)
+            pad_amount = int((kernel_size-1))
             pad = pad_array(img, pad_amount)
             H = Gaussian2D(kernel_size, sigma)
-            img = (image_filter2d(pad, H)[pad_amount:pad_amount+img.shape[0], pad_amount:pad_amount+img.shape[1]]).round(decimals=0)
+            img = (image_filter2d(pad, H)[pad_amount:pad_amount+img.shape[0], pad_amount:pad_amount+img.shape[1]]).round(decimals=2)
     
     x = img
     end = timer()
@@ -173,8 +174,8 @@ def main(argv):
         print(L)
     
     # save image with minima
+    log("Minima-finding iterations: {}".format(count), file=logfile)
     if verbose:
-        log("Minima-finding iterations: {}".format(count), file=logfile)
         xtc = cv2.cvtColor(np.array(255-copy.deepcopy(np.round(x, decimals=0))*255, dtype=np.uint8), cv2.COLOR_GRAY2RGB)
         for i in range(0, x.shape[0]):
             for j in range(0, x.shape[1]):
@@ -184,34 +185,26 @@ def main(argv):
         
     # grow drain interiors
     start = timer()
-    drains, drain_values = grow_regions(x, L, unlabeled=1, connectedness=connect)
+    drains = grow_regions(x, L, unlabeled=1, connectedness=connect)
     num_drains = len(drains)
-    if num_drains > minima:
-        drains_sorted = {key: value for key, value in sorted(drains.items(), key=lambda item: item[1])}
-        keys = drains_sorted.keys()
-        for key in drains_sorted.keys():
-            if keys.index(key) > minima:
-                drains_sorted.pop(key)
-            
-    
+    log("Number of drains found: {}".format(num_drains), file=logfile)
     
     # discard larger drains over requested number of minima
     if num_drains > minima:
-        drains = [e for _,e in sorted(zip(drain_values,drains))]
-        drain_values = sorted(drain_values)
-        while len(drains) > minima:
-            drains.pop(-1)
-            drain_values.pop(-1)
+        drains = {key: value for key, value in sorted(drains.items(), key=lambda item: item[1])}
+        drain_keys = list(drains.keys())
+        for key in drain_keys:
+            if drain_keys.index(key)+1 > minima:
+                drains.pop(key)
+            
         for i in range(0, L.shape[0]):
             for j in range(0, L.shape[1]):
                 if L[i,j] not in drains:
                     L[i,j] = 0
-                else:
-                    L[i,j] = drain_values.index(x[i,j])+1
-        drains = []
-        for i in range(1, len(drain_values)+1):
-            drains.append(i)
+
         num_drains = len(drains)
+    drain_keys = list(drains.keys())
+
     end = timer()
     log("\nTime taken to grow drains: {0:.3f}".format(end - start), file=logfile)
     
@@ -220,13 +213,13 @@ def main(argv):
         print(L)
     
     rand_bgr = np.random.randint(255, size=(num_drains, 3))
+    log("Number of drains kept: {}".format(num_drains), file=logfile)
     if verbose:
-        log("Number of drains: {}".format(num_drains), file=logfile)
         xtc = cv2.cvtColor(np.array(255-copy.deepcopy(np.round(x, decimals=0))*255, dtype=np.uint8), cv2.COLOR_GRAY2RGB)
         for i in range(0, x.shape[0]):
             for j in range(0, x.shape[1]):
                 if L[i,j] > 0:
-                    xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
+                    xtc[i, j] = (rand_bgr[drain_keys.index(L[i,j]), 0], rand_bgr[drain_keys.index(L[i,j]), 1], rand_bgr[drain_keys.index(L[i,j]), 2])
         cv2.imwrite('out/' + file_suffix + '_drains.png', xtc)
     
     # prep V structure
@@ -264,7 +257,7 @@ def main(argv):
                 if L[q] == 0:
                     L[q] = L[p]
                 elif L[q] > 0 and L[q] != L[p]:
-                    L[q] = num_drains+1
+                    L[q] = 10000
                     V.pop(V.index(q))
         # remove p from consideration without ruining function generality
         mask[p] = 255
@@ -279,8 +272,10 @@ def main(argv):
     xtc = cv2.cvtColor(np.array(copy.deepcopy(np.round(L, decimals=0)), dtype=np.uint8), cv2.COLOR_GRAY2RGB)
     for i in range(0, x.shape[0]):
         for j in range(0, x.shape[1]):
-            if L[i,j] in drains:
-                xtc[i, j] = (rand_bgr[int(L[i,j])-1, 0], rand_bgr[int(L[i,j])-1, 1], rand_bgr[int(L[i,j])-1, 2])
+            if L[i,j] in drain_keys:
+                xtc[i, j] = (rand_bgr[drain_keys.index(L[i,j]), 0], rand_bgr[drain_keys.index(L[i,j]), 1], rand_bgr[drain_keys.index(L[i,j]), 2])
+            elif L[i,j] == 10000:
+                xtc[i,j] = (0,100,255)
             else:
                 xtc[i,j] = (125,125,125)
     cv2.imwrite('out/' + file_suffix + '_basins.png', xtc)

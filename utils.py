@@ -97,7 +97,6 @@ def neighbors(image, p, connectedness=8):
     x = p[0]
     y = p[1]
     n = []
-    #print(X,Y,x,y)
     if connectedness == 8:
         for i in [-1, 0, 1]:
             # check within x bounds
@@ -108,7 +107,7 @@ def neighbors(image, p, connectedness=8):
                     if y+j > -1 and y+j < Y:
                         #print(y+j)mi
                         # p is not a neighbor of p
-                        if i != 0 and j != 0:
+                        if i != 0 or j != 0:
                             n.append((x+i,y+j))
     elif connectedness == 4:
         if x > 0:
@@ -138,7 +137,7 @@ def grow_regions(image, labels, unlabeled=0, connectedness=8):
                     current_label = next_label
                     next_label = next_label + 1
                     change_flag = True
-                    regions[current_label-unlabeled] = image[i,j]
+                    region_dic[current_label-unlabeled] = image[i,j]
                     regions.append(current_label-unlabeled)
                     vals.append(image[i,j])
                     
@@ -160,7 +159,7 @@ def grow_regions(image, labels, unlabeled=0, connectedness=8):
         for j in range(0,Y):
             if labels[i,j] > 0:
                 labels[i,j] = labels[i,j] - unlabeled
-    return regions, vals
+    return region_dic
             
 
 def is_downstream(image, p, q, connectedness=8):
