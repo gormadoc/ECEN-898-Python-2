@@ -1,0 +1,13 @@
+
+Time taken for preprocessing: 118.789
+
+Time taken to find minima: 2.331
+Minima-finding iterations: 4
+Number of drains found: 103
+
+Time taken to grow drains: 3.443
+Number of drains kept: 50
+
+Time taken to prep sorted queue: 0.600
+
+Time taken to grow basins: 1089.668
